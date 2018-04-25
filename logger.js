@@ -1,7 +1,7 @@
-var winston = require('winston');
-var config = winston.config;
+let winston = require('winston');
+let config = winston.config;
 
-var loggingConfig = {
+let loggingConfig = {
   transports: [
     new (winston.transports.Console)({
       timestamp: function() {

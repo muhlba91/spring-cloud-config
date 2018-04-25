@@ -9,7 +9,7 @@
     "js-yaml": "^3.8.2",
     "sinon": "^4.4.2",
     "winston": "^2.3.1",
-    "yargs": "^9.0.1"
+    "events": "^2.0.0"
   },
   "devDependencies": {
     "chai": "^3.5.0",
