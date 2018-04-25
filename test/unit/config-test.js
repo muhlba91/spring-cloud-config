@@ -418,6 +418,43 @@ describe('spring-cloud-config-client', function() {
             });
         });
 
+        it('should load configs with additional properties override', function() {
+            this.sandbox.stub(cloudConfigClient, 'load').returns(
+                Promise.resolve({
+                    forEach(callback, aBoolValue) {
+                    }
+                })
+            );
+            let options = {
+                bootstrapPath: './test/fixtures/load/commonConfig',
+                configPath: './test/fixtures/load/appNameConfig',
+                activeProfiles: [],
+                level: 'debug'
+            };
+            springCloudConfig.setOptions(options);
+            return springCloudConfig.load({
+                bootstrap: {
+                    spring: {
+                        cloud: {
+                            config: {
+                                label: "dev"
+                            }
+                        }
+                    }
+                },
+                application: {
+                    app: "app"
+                }
+            }).then((config) => {
+                assert.deepEqual(config.spring.cloud.config.name, 'custom-app-name');
+                assert.deepEqual(config.spring.cloud.config.endpoint, 'http://localhost:8888');
+                assert.deepEqual(config.spring.cloud.config.label, 'dev');
+                assert.deepEqual(config.app, 'app');
+            }, (error) => {
+                assert.fail("Error", "Success", JSON.stringify(error.message));
+            });
+        });
+
         it('should load dev configs with dev profile', function() {
             this.sandbox.stub(cloudConfigClient, 'load').returns(
                 Promise.resolve({

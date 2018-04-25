@@ -12,8 +12,8 @@ class SpringCloudConfig extends EventEmitter {
 
         this._options = options;
 
-        this._remoteConfig = undefined;
-        this._localConfig = undefined;
+        this._cloudConfig = undefined;
+        this._applicationConfig = undefined;
 
         this._bootstrapConfig = undefined; // The config to use for cloud config client
         this._config = undefined; // The initialized config instance
@@ -38,8 +38,9 @@ class SpringCloudConfig extends EventEmitter {
         const that = this;
         this._watchConfig.timerId = setTimeout(() => {
             this._readCloudConfig(this._bootstrapConfig)
-                .then((remoteConfig) => {
-                    that.emit(ConfigEvents.CONFIG_REFRESH_EVENT, remoteConfig);
+                .then((cloudConfig) => {
+                    that._cloudConfig = cloudConfig;
+                    that.emit(ConfigEvents.CONFIG_REFRESH_EVENT, that._generateConfig());
                 })
                 .catch((error) => {
                     that.emit(ConfigEvents.CONFIG_ERROR_EVENT, error);
@@ -59,15 +60,14 @@ class SpringCloudConfig extends EventEmitter {
         this._options = options;
     }
 
-    load() {
-        // options.bootstrapPath is optional
+    load(additionalProperties) {
         if (!(this._options.configPath && this._options.activeProfiles)) {
             return Promise.reject("Invalid options supplied. Please consult the documentation.");
         }
 
         logger.level = (this._options.level ? this._options.level : 'info');
 
-        return this._readConfig();
+        return this._readConfig(additionalProperties);
     }
 
     getConfig() {
@@ -77,9 +77,10 @@ class SpringCloudConfig extends EventEmitter {
     /**
      * Reads all of the configuration sources for the application and merges them into a single config object.
      *
+     * @param additionalProperties additional properties map
      * @returns {Promise} Promise will resolve to the fully merged config object
      */
-    _readConfig() {
+    _readConfig(additionalProperties) {
         const that = this;
 
         return new Promise(function(resolve, reject) {
@@ -88,14 +89,26 @@ class SpringCloudConfig extends EventEmitter {
             that._readYamlAsDocument(theBootstrapPath + '/bootstrap.yml', that._options.activeProfiles)
                 .then((thisBootstrapConfig) => {
                     thisBootstrapConfig.spring.cloud.config.profiles = that._options.activeProfiles;
-                    logger.debug("Using Bootstrap Config: " + JSON.stringify(thisBootstrapConfig));
+                    if (additionalProperties && additionalProperties.bootstrap) {
+                        thisBootstrapConfig = that._mergeProperties([
+                            thisBootstrapConfig,
+                            additionalProperties.bootstrap
+                        ]);
+                    }
                     that._bootstrapConfig = thisBootstrapConfig;
+                    logger.debug("Using Bootstrap Config: " + JSON.stringify(that._bootstrapConfig));
 
                     return that._readApplicationConfig(that._options.configPath, that._options.activeProfiles);
                 })
                 .then((applicationConfig) => {
-                    that._localConfig = applicationConfig;
-                    logger.debug("Using Application Config: " + JSON.stringify(applicationConfig));
+                    if (additionalProperties && additionalProperties.application) {
+                        applicationConfig = that._mergeProperties([
+                            applicationConfig,
+                            additionalProperties.application
+                        ]);
+                    }
+                    that._applicationConfig = applicationConfig;
+                    logger.debug("Using Application Config: " + JSON.stringify(that._applicationConfig));
 
                     if (applicationConfig.spring &&
                         applicationConfig.spring.cloud &&
@@ -107,7 +120,7 @@ class SpringCloudConfig extends EventEmitter {
                     return that._readCloudConfig(that._bootstrapConfig);
                 })
                 .then((cloudConfig) => {
-                    that._remoteConfig = cloudConfig;
+                    that._cloudConfig = cloudConfig;
                     logger.debug("Using Remote Config: " + JSON.stringify(cloudConfig));
 
                     return Promise.resolve();
@@ -277,9 +290,11 @@ class SpringCloudConfig extends EventEmitter {
     _generateConfig() {
         this._config = this._mergeProperties([
             this._bootstrapConfig,
-            this._localConfig,
-            this._remoteConfig
+            this._applicationConfig,
+            this._cloudConfig
         ]);
+
+        return this._config;
     }
 
     /**
