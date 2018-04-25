@@ -353,5 +353,5 @@ class SpringCloudConfig extends EventEmitter {
     }
 }
 
-exports.default = SpringCloudConfig;
-exports.Events = ConfigEvents;
+module.exports.default = SpringCloudConfig;
+module.exports.Events = ConfigEvents;
